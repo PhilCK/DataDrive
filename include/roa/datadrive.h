@@ -25,6 +25,13 @@ typedef void (*roa_datadrive_func)(struct roa_datadrive_ctx*);
 struct roa_datadrive_ctx*
 roa_datadrive_create();
 
+struct roa_datadrive_ctx*
+roa_datadrive_create_ex(
+        void **space);
+
+size_t
+roa_datadrive_size_needed();
+
 void
 roa_datadrive_destroy(
         struct roa_datadrive_ctx **ctx);

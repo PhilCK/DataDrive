@@ -10,6 +10,7 @@
 #define ROA_DD_MAX_RULE 128
 #define ROA_DD_MAX_DATA 64
 
+/* This is our fallback clz */
 #define ROA_BIT_IDX(n) \
         (n == (1UL << 0) ? 0 : \
          n == (1UL << 1) ? 1 : \
@@ -125,6 +126,16 @@ struct roa_datadrive_ctx {
 struct roa_datadrive_ctx*
 roa_datadrive_create() {
 
+        void *space = malloc(roa_datadrive_size_needed());
+
+        return roa_datadrive_create_ex(
+               &space);
+}
+
+struct roa_datadrive_ctx*
+roa_datadrive_create_ex(
+        void **space)
+{
         /* Do a runtime check of ROA_BIT_IDX, since this is a hand rolled
          * list of things, we'll do a check each time we create a context.
          *
@@ -136,7 +147,14 @@ roa_datadrive_create() {
                 assert(ROA_IS_POW2((1UL << i)) && "Pow2 Macro is faulty");
         }
 
-        return malloc(sizeof(struct roa_datadrive_ctx));
+        memset(*space, 0, roa_datadrive_size_needed());
+        return *space;
+}
+
+size_t
+roa_datadrive_size_needed()
+{
+        return sizeof(struct roa_datadrive_ctx);
 }
 
 void
@@ -294,9 +312,7 @@ roa_datadrive_data_clear(
          * Maybe this could be a compile time setting
          */
 
-        for(int i = 0; i < ROA_DD_MAX_DATA_COUNT; ++i) {
-                row->data[i] = 0;
-        }
+        memset(row->data, 0, sizeof(row->data));
 
         row->count = 0;
 }
