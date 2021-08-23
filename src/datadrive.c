@@ -4,10 +4,14 @@
 #include <stdlib.h>
 
 /* -------------------------------------------------------------------------- */
-/* Config and Internal
+/* Config and Internal helpers
  */
 
+#ifndef ROA_DD_MAX_RULE
 #define ROA_DD_MAX_RULE 128
+#endif
+
+/* Limit of uint64_t for sugar reasons */
 #define ROA_DD_MAX_DATA 64
 
 /* This is our fallback clz */
@@ -77,17 +81,25 @@
          n == (1UL << 62) ? 62 : \
          n == (1UL << 63) ? 63 : 0)
 
-static int clz(uint64_t id) {
-        #if defined(__GNUC__)
-        return __builtin_clzl(id);
-        #elif defined(__clang__)
+/* We convert id's to array indexs.
+ */
+static int
+clz(uint64_t id) {
+        #if defined(__GNUC__) || defined(__clang__)
         return __builtin_clzl(id);
         #else
-        ROA_BIT_IDX(id);
+        /* This isn't a CLZ impl, but for our purposes it works
+         * since we assert the number is also a pow2
+         */
+        return ROA_BIT_IDX(id);
         #endif
+        /* Missin MSVC
+         * Need to test _BitScanReverse and or __lzcnt
+         */
 }
 
-#define ROA_IS_POW2(n) ((n != 0UL) && ((n & (n - 1UL)) == 0UL))
+/* Doesn't handle the zero case */
+#define ROA_IS_POW2(n) ((n & (n - 1UL)) == 0UL)
 
 /* -------------------------------------------------------------------------- */
 /* Internal Context 
@@ -121,6 +133,8 @@ struct roa_datadrive_ctx {
 
 /* -------------------------------------------------------------------------- */
 /* Lifetime
+ * The create functions don't do much, but its a good place for some runtime
+ * checks to happen so we encorage it to happen.
  */
 
 struct roa_datadrive_ctx*
@@ -139,11 +153,13 @@ roa_datadrive_create_ex(
         /* Do a runtime check of ROA_BIT_IDX, since this is a hand rolled
          * list of things, we'll do a check each time we create a context.
          *
-         * Also do a runtime check for ROA_IS_POW2
+         * Also do a runtime check for ROA_IS_POW2.
+         *
+         * Also assert for compatability.
          */
 
         for(int i = 0; i < 64; ++i) {
-                assert(ROA_BIT_IDX((1UL << i)) == i  && "The bit index is corrupt");
+                assert(ROA_BIT_IDX((1UL << i)) == i  && "ROA_BIT_IDX is corrupt");
                 assert(ROA_IS_POW2((1UL << i)) && "Pow2 Macro is faulty");
         }
 
@@ -260,13 +276,12 @@ roa_datadrive_data_set(
         assert(data_id && "'data_id'  must be greater than zero");
         assert(ROA_IS_POW2(data_id) && "'data_id' must be a power of two");
 
-        int idx = clz(data_id);
-
         /* Insert index
          * Try and find a space for this data. We can store multiple instances
          * of the same type type upto ROA_DD_MAX_DATA_COUNT.
          */
 
+        int idx = clz(data_id);
         struct roa_datadrive_row *row = &ctx->rows[idx];
         int insert_idx = row->count;
 
@@ -280,7 +295,6 @@ roa_datadrive_data_set(
 
         row->data[insert_idx] = data;
         row->count += 1;
-
         ctx->state |= data_id;
 
         return 1;
@@ -309,7 +323,6 @@ roa_datadrive_data_clear(
         struct roa_datadrive_row *row = &ctx->rows[idx];
 
         /* Clear out the data
-         * Maybe this could be a compile time setting
          */
 
         memset(row->data, 0, sizeof(row->data));
@@ -332,8 +345,10 @@ roa_datadrive_data_get(
         assert(ROA_IS_POW2(data_id) && "'data_id' must be a power of two");
         assert((out_data || out_count) && "'out_data' or 'out_count' must be set");
 
-        int idx = clz(data_id);
+        /* Get the Row for this data.
+         */
 
+        int idx = clz(data_id);
         struct roa_datadrive_row *row = &ctx->rows[idx];
 
         /* If the user wants the size update the size

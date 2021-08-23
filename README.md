@@ -27,6 +27,13 @@ include the 'include' path.
 
 `cc src/datadrive.c test/main.c -I ./include/ -Wall`
 
+## Todo List
+
+- [ ] Allow the user to decide how big the data buffer is.
+- [ ] Some unit tests.
+- [ ] Some performances tests (Around CLZ).
+- [ ] Some CI.
+
 ## Futher Reading
 
 Things I read that made me want to write this.
@@ -34,3 +41,4 @@ Things I read that made me want to write this.
 - https://en.wikipedia.org/wiki/Decision_table
 - https://en.wikipedia.org/wiki/Data-oriented_design
 - https://www.dataorienteddesign.com/dodmain/node7.html
+
